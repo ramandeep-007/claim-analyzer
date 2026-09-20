@@ -4,6 +4,7 @@ import os
 import requests
 import time
 from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
 
 
 nlp = spacy.load("en_core_web_sm")
@@ -30,7 +31,7 @@ load_dotenv()
 api_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
 
 
-def search_semantic_scholar(query, api_key=None, limit=5, max_retries=5):
+def search_semantic_scholar(query, api_key=None, limit=20, max_retries=5):
 
     url = "https://api.semanticscholar.org/graph/v1/paper/search"
 
@@ -85,10 +86,48 @@ def search_semantic_scholar(query, api_key=None, limit=5, max_retries=5):
     print("Failed after multiple retries due to rate limiting.")
     return []
 
+embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-x = search_semantic_scholar(
-    clean_text,
-    api_key=api_key
+papers=search_semantic_scholar(clean_text,limit=20,api_key=api_key)
+
+claim_embedding=embedding_model.encode(clean_text)
+
+for paper in papers:
+
+    abstract=paper.get("abstract") or None
+
+    if abstract:
+        paper_embedding=embedding_model.encode(abstract)
+
+        similarity=embedding_model.similarity(claim_embedding,paper_embedding)
+
+        paper['similarity']=float(similarity[0][0])
+
+    else:
+        paper['similarity']=None
+
+papers.sort(
+    key=lambda paper:paper["similarity"]
+    if paper["similarity"] is not None else -1,
+    reverse=True
 )
 
-print(x)
+top_papers=papers[:5]
+
+print("\nTop Evidence\n")
+
+for i,paper in enumerate(top_papers,start=1):
+
+    print(f"{i}. {paper['title']}")
+
+    if(paper["similarity"] is not None):
+        print(f"   Similarity: {paper['similarity']:.4f}")
+
+    else:
+        print("   Similarity: unavailable (no abstract)")
+
+    print(f"   Year: {paper['year']}")
+    print()
+    
+
+
