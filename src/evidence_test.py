@@ -1,9 +1,16 @@
 import requests
 import time
+import os
+from dotenv import load_dotenv
 
-def search_semantic_scholar(query, limit=5, api_key=None, max_retries=3):
+load_dotenv()
+
+api_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
+
+def search_semantic_scholar(query, limit=5, api_key=None, max_retries=5):
 
     url = "https://api.semanticscholar.org/graph/v1/paper/search"
+
 
     params = {
         "query": query,
@@ -22,6 +29,7 @@ def search_semantic_scholar(query, limit=5, api_key=None, max_retries=3):
             params=params,
             headers=headers
         )
+
 
         if response.status_code == 429:
             wait = 5 * (attempt + 1)
@@ -58,7 +66,8 @@ def search_semantic_scholar(query, limit=5, api_key=None, max_retries=3):
 
 
 x = search_semantic_scholar(
-    "caffeine before exercise fat oxidation"
+    "caffeine before exercise fat oxidation",
+    api_key=api_key
 )
 
 print(x)
