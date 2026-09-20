@@ -2,12 +2,14 @@ import requests
 import time
 import os
 from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
+
 
 load_dotenv()
 
 api_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
 
-def search_semantic_scholar(query, limit=5, api_key=None, max_retries=5):
+def search_semantic_scholar(query, limit=20, api_key=None, max_retries=5):
 
     url = "https://api.semanticscholar.org/graph/v1/paper/search"
 
@@ -65,9 +67,53 @@ def search_semantic_scholar(query, limit=5, api_key=None, max_retries=5):
     return []
 
 
-x = search_semantic_scholar(
-    "caffeine before exercise fat oxidation",
+
+
+
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+claim = "Drinking coffee before exercise increases fat burning."
+
+papers = search_semantic_scholar(
+    "coffee exercise fat burning",
     api_key=api_key
 )
 
-print(x)
+claim_embedding = model.encode(claim)
+
+for paper in papers:
+    abstract = paper.get("abstract")
+
+    if abstract:
+        paper_embedding = model.encode(abstract)
+
+        similarity = model.similarity(
+            claim_embedding,
+            paper_embedding
+        )
+
+        paper["similarity"] = float(similarity[0][0])
+    else:
+        paper["similarity"] = None
+
+papers.sort(
+    key=lambda paper: paper["similarity"]
+    if paper["similarity"] is not None else -1,
+    reverse=True
+)
+
+top_papers = papers[:5]
+
+print("\nRanked Papers:\n")
+
+for i, paper in enumerate(top_papers, start=1):
+    if paper["similarity"] is not None:
+        print(
+        f"{i}. {paper['title']} "
+        f"→ similarity: {paper['similarity']:.4f}"
+    )
+    else:
+        print(
+        f"{i}. {paper['title']} "
+        f"→ similarity: unavailable (no abstract)"
+    )
